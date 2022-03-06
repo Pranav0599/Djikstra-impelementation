@@ -1,49 +1,20 @@
+import queue
 import matplotlib.pyplot    as pyplot
 import numpy                as np
 import cv2 
 import math
-# import sys
 from collections import defaultdict
-# import time
+
+from numpy import imag
 
 class Node:
     """
     Creating node class
     """
-    def __init__(self, position, cost, key, p_key):
+    def __init__(self, position, cost):
         self.position = position
         self.cost = cost  # initially all the new nodes have infinite cost attached to them
         self.parent = None
-        self.key = key
-        self.p_key = p_key
-        
-
-node_book = dict()
-def store_node_data(position, parent_pos ,cost):
-    key = 1
-    for node in node_book.values():
-            if position[0] == node.position[0] and position[1] == node.position[1]:
-                return node  
-    p_key = 0
-    for key, node in node_book.items():
-        if parent_pos[0] == node.position[0] and parent_pos[1] == node.position[1]:
-            p_key =  key;           
-
-    node = Node(position,cost, key, p_key)
-    node_book[node.key] = node
-    key +=1
-    return node
-
-def get_node_from_dict(position):
-        for node in node_book.values():
-            if position[0] == node.position[0] and position[1] == node.position[1]:
-                return node
-        return False
-
-def get_parent(node):
-        return node_book[node.p_key]
-    
-
 
 def half_planes(point1,point2, image, side):
 
@@ -88,7 +59,7 @@ def obstacle_offset_boundry(image, boundry_image, color):
     return temp_image
 
 
-def polygon(xpts, ypts, image):
+def draw_polygon(xpts, ypts, image):
     #Drawing the polygon obstacle using half planes
     image = image.copy()
 
@@ -108,7 +79,7 @@ def polygon(xpts, ypts, image):
 
     return result
 
-def circle(radius, center, image):
+def draw_circle(radius, center, image):
     #Drawing a circle
     im = image.copy()
 
@@ -118,9 +89,9 @@ def circle(radius, center, image):
               im[i,j]= 1.0
     return im
 
-def hexagon(center, size, image):
+def draw_hexagon(center, size, image):
     #Drawing hexagon obstacle
-    image = image.copy()
+    image_copy = image.copy()
     points_x = []
     points_y = []
     itr = 6
@@ -130,19 +101,19 @@ def hexagon(center, size, image):
         points_x.append(Point_x)
         points_y.append(Point_y)
 
-    side_1 = half_planes((points_x[0], points_y[0]), (points_x[1], points_y[1]), image, 0)
-    side_2 = half_planes((points_x[1], points_y[1]), (points_x[2], points_y[2]), image, 0)
-    side_3 = half_planes((points_x[2], points_y[2]), (points_x[3], points_y[3]), image, 0)
-    side_4 = half_planes((points_x[3], points_y[3]), (points_x[4], points_y[4]), image, 1)
-    side_5 = half_planes((points_x[4], points_y[4]), (points_x[5], points_y[5]), image, 1)
-    side_6 = half_planes((points_x[5], points_y[5]), (points_x[0], points_y[0]), image, 1)
+    side_1 = half_planes((points_x[0], points_y[0]), (points_x[1], points_y[1]), image_copy, 0)
+    side_2 = half_planes((points_x[1], points_y[1]), (points_x[2], points_y[2]), image_copy, 0)
+    side_3 = half_planes((points_x[2], points_y[2]), (points_x[3], points_y[3]), image_copy, 0)
+    side_4 = half_planes((points_x[3], points_y[3]), (points_x[4], points_y[4]), image_copy, 1)
+    side_5 = half_planes((points_x[4], points_y[4]), (points_x[5], points_y[5]), image_copy, 1)
+    side_6 = half_planes((points_x[5], points_y[5]), (points_x[0], points_y[0]), image_copy, 1)
 
-    image = cv2.bitwise_and(side_1, side_2)
-    image = cv2.bitwise_and(image, side_3)
-    image = cv2.bitwise_and(image, side_4)
-    image = cv2.bitwise_and(image, side_5)
-    image = cv2.bitwise_and(image, side_6)
-    return image
+    image_copy = cv2.bitwise_and(side_1, side_2)
+    image_copy = cv2.bitwise_and(image_copy, side_3)
+    image_copy = cv2.bitwise_and(image_copy, side_4)
+    image_copy = cv2.bitwise_and(image_copy, side_5)
+    image_copy = cv2.bitwise_and(image_copy, side_6)
+    return image_copy
 
 
 def boundry_of_map(image):
@@ -171,32 +142,28 @@ def draw_map(image):
     #Function to draw the map with all obstacles
     img = image.copy()
 
-    draw_hexagon = hexagon((200,100), 40, img)
-    draw_circle = circle(40, (300, 185), img)
+    hexagon = draw_hexagon((200,100), 40, img)
+    circle = draw_circle(40, (300, 185), img)
     xpts = [36, 115, 80, 105]
     ypts = [185, 210, 180, 100]
-    draw_poly = polygon(xpts, ypts, img)
-    map = cv2.bitwise_or(draw_hexagon,draw_circle)
-    map = cv2.bitwise_or(map, draw_poly)
+    poly = draw_polygon(xpts, ypts, img)
+    map = cv2.bitwise_or(hexagon,circle)
+    map = cv2.bitwise_or(map, poly)
     map = cv2.bitwise_or(map, boundry_of_map(image))
     map = cv2.flip(map, 0)
-    # map = colouring_the_map(map, [47, 47, 211])
-
     x_poly_boundary = [26, 130, 90, 115]
     y_poly_boundary = [185, 220, 180, 80]
-
-    boundry_of_circle = cv2.bitwise_xor(circle(40, (300, 185), img), circle(45, (300, 185), img) )
-    boundry_of_hexagon = cv2.bitwise_xor(hexagon((200,100), 40, img), hexagon((200,100), 45, img))
-    boundry_of_polygon = cv2.bitwise_xor(polygon(xpts, ypts, img), polygon(x_poly_boundary, y_poly_boundary, img))
+    boundry_of_circle = cv2.bitwise_xor(draw_circle(40, (300, 185), img), draw_circle(45, (300, 185), img) ) # Circle boundary
+    boundry_of_hexagon = cv2.bitwise_xor(draw_hexagon((200,100), 40, img), draw_hexagon((200,100), 45, img)) # hexagon Boundry
+    boundry_of_polygon = cv2.bitwise_xor(draw_polygon(xpts, ypts, img), draw_polygon(x_poly_boundary, y_poly_boundary, img)) #polygon boumdry
 
 
     boundary_map_image = cv2.bitwise_or(boundry_of_circle, boundry_of_hexagon)
     boundary_map_image = cv2.bitwise_or(boundary_map_image, boundry_of_polygon)
     boundary_map_image = cv2.flip(boundary_map_image, 0)
 
-    final_map = cv2.bitwise_xor(boundary_map_image, map)
-    # new_image = obstacle_offset_boundry(image, boundary_map_image, [154, 154, 239])
-    return final_map
+    map = cv2.bitwise_or(boundary_map_image, map)
+    return map
 
 obstacles = []
 
@@ -204,10 +171,10 @@ def obstacle_coordinates(image):
     #getting the obstacle coordinates from the drawn map image
 
 
-    for row in range(image.shape[0]):
-        for col in range(image.shape[1]):
-            if image[row, col] == 1:
-                obstacles.append((row, col)) 
+    for x in range(image.shape[0]):
+        for y in range(image.shape[1]):
+            if image[x, y] == 1:
+                obstacles.append((x, y)) 
 
 def Check_all_obstacles(coordinate):
 
@@ -221,7 +188,8 @@ def Check_all_obstacles(coordinate):
 
 def idx_of_min_node(open_nodes):
 
-    #priority queue - getting the position with lowerst cost
+    #priority queue - getting the position with lowerst cost(greedy approach)
+
     min_cost = float('inf')    
     min_cost_node = []
     for node in open_nodes:
@@ -233,27 +201,29 @@ def idx_of_min_node(open_nodes):
         if node.position[0] == min_cost_node[0].position[0] and min_cost_node[0].position[1] == node.position[1]:
             return index
 
+def check_node_exisitance_queue(current_pos, queue_to_check):
 
-def check_if_visited(position):
-    for node in node_book.values():
-        if position[0][0] == node.position[0] and position[0][1] == node.position[1]:
-            return True 
+    #Function to check if given point is in requested queue
+
+    for _ , node in enumerate(queue_to_check):
+        if node.position == current_pos:
+            return True
+    return False
+
+def find_node(current_pos, queue_to_check):
+
+    #Function to check if given current position is in queue
+
+    for _ , node in enumerate(queue_to_check):
+        if node.position == current_pos:
+            return node
     return False
 
 
-
-
-# def check_in_closed_queue(current_pos, closed_q):
-
-#     #Function to check if given point is in closed queue
-#     for _ , node in enumerate(closed_q):
-#         if node.position == current_pos:
-#             return True
-#     return False
-
-        
+    
 def get_next_move(current_coordinate, action_set, action_cost):
-    # Function to get next possible moves from current node location
+    # Function to get next possible moves from current node location 
+    #returns list of coordinates
 
     next_coordinates = [ (current_coordinate[0]+move[0], current_coordinate[1]+move[1]) for move in action_set]
     next_coordinates_cost = [ [next_coordinates[index], cost] for index, cost  in enumerate(action_cost)]
@@ -266,7 +236,7 @@ def get_next_move(current_coordinate, action_set, action_cost):
     return checked_coordinates
 
 
-def djikstra(image, start_pos, goal_pos):
+def dijkstra(image, start_pos, goal_pos):
 
     #Main function to implement the dijkstra algorith
     image = image.copy()
@@ -277,53 +247,43 @@ def djikstra(image, start_pos, goal_pos):
     x = start_pos[0]
     y = start_pos[1]
 
-    image[x,y] = 1
-    image[goal_x, goal_y] = 1
-
-    # action_set = ["move_up", "move_down", "move_left", "move_right", "move_up_right", "move_up_left", "move_down_right", "move_down_left"]
-    start_node = store_node_data((x,y), 1, 0)
+    # image[x,y] = 1
+    # image[goal_x, goal_y] = 1
+    start_node = Node((x,y), 0)
     
-    open_queue = []
-    open_queue.append(start_node)
-    closed_queue = []
-    # parent_node = dict()
+    open_queue = []       # queue of open nodes
+    open_queue.append(start_node) #adding current start node to the open queue
+    closed_queue = []     # queue of closed nodes
 
     action_set = [(1,0), (-1,0), (0,1), (0,-1), (1,1), (-1,1), (1,-1), (-1,-1)] 
-    action_cost = [1, 1, 1, 1, 1.4, 1.4, 1.4, 1.4]
+    base_cost = [1, 1, 1, 1, 1.4, 1.4, 1.4, 1.4]
 
 
-    while len(open_queue) !=0:
+    while open_queue:
         current_node = open_queue.pop(idx_of_min_node(open_queue))
         current_position = current_node.position
 
-        closed_queue.append(current_node)
-        # print(current_position)
+        closed_queue.append(current_node) 
 
-        if current_position[0] == goal_pos[0] and current_position[1] == goal_pos[1]:
+        if current_position[0] == goal_x and current_position[1] == goal_y:
+            closed_queue.append(goal_pos)
             print("Goal reached!")
             break
 
-        next_moves = get_next_move(current_node.position, action_set, action_cost)
+        next_moves = get_next_move(current_node.position, action_set, base_cost) #getting possible next moves from the current node position
         
         for move in next_moves:           
-            if not check_if_visited(move):
-                new_node = store_node_data(move[0], current_node.position, move[1]+ current_node.cost)
-                # new_node.parent = current_node
-                # parent_node[current_node] = new_node.parent
-                # new_node.cost = move[1] + current_node.cost
-                
-                
-                # index = find_node(current_node, open_queue)
-                node_exist = False
+            if not check_node_exisitance_queue(move[0], closed_queue) and not Check_all_obstacles(current_position) and move[0][0] < 400 and move[0][1] < 250:
+                new_node = Node(move[0], move[1]+ current_node.cost)
+                if not check_node_exisitance_queue(move[0], open_queue):
+                    new_node.parent = current_node
+                    open_queue.append(new_node)
+            else:
                 for index, node in enumerate(open_queue):
-                    print("running")
-                    if new_node.position[0] == node.position[0] and new_node.position[1] == node.position[1] and new_node.cost < node.cost:
+                    if (new_node.position[0] == node.position[0] and new_node.position[1] == node.position[1]) and new_node.cost < node.cost:
                         open_queue.pop(index)
                         open_queue.append(new_node)
-                        node_exist = True
 
-                if not node_exist:
-                    open_queue.append(new_node)
 
         for node in closed_queue:
             image[node.position[0], node.position[1]] = 1
@@ -332,26 +292,29 @@ def djikstra(image, start_pos, goal_pos):
         cv2.imshow('Frame',image)
         if cv2.waitKey(1) & 0xFF == ord('q'):
             break     
-
+    # cv2.waitKey(0)
     cv2.destroyAllWindows()
 
-    return track_back(), len(closed_queue)
+    return closed_queue
 
 
-def track_back(parent_dict, start, goal):
-    path = []
+def track_back(closed_queue, start, goal, image):
+
+    #Function to trace back the path using goal node and adding its parent and the its parent and so on to the list
+    image = image.copy()
+    path = list()
     path.append(goal)
-
-    child = get_node_from_dict(goal)
-    path.append(parent_dict[goal])
-    # parent = parent_dict[goal]
+    node = find_node(goal, closed_queue)
+    parent = node.parent
     while True:
-        child = get_parent(child)
-        path.append(child.position)
-        if child.position[0] == start[0] and child.position[1] == start[1]:
-            break
-        
-    return path[::-1]
+        current = parent.parent
+        parent = current
+        path.append(current.position)
+        if current.position[0] == start[0] and current.position[1] == start[1]:
+                break
+
+
+    return path
 
 
 if __name__ == "__main__":
@@ -359,36 +322,35 @@ if __name__ == "__main__":
     map = draw_map(image)
     obstacle_coordinates(image)
 
-    # start_coordinate = (210, 68)  
+    # start_coordinate = (210, 65)  
     # goal_coordinate =  (210, 70)
+    
+
+    #Taking user input for start and goal coordinates
     print("Enter x y of start node with space inbetween:  ", end="")
     input_by_user_s = input().split(" ")
-    start_coordinate = (int(input_by_user_s[0]), int(input_by_user_s[1]))
-    
+    if not Check_all_obstacles((input_by_user_s[0], input_by_user_s[1])):
+        start_coordinate = (int(input_by_user_s[0]), int(input_by_user_s[1]))
+    else:
+        print("Coordinates in Obstacle space or out of map")
+
 
     print("Enter x y of goal node with space inbetween:  ", end="")
     input_by_user_g = input().split(" ")
-    goal_coordinate = (int(input_by_user_g[0]), int(input_by_user_g[1]))
-    print("Your goal coordinate",goal_coordinate)
-    
+    if not Check_all_obstacles((input_by_user_g[0], input_by_user_g[1])):
+        goal_coordinate = (int(input_by_user_g[0]), int(input_by_user_g[1]))
+    else:
+        print("Coordinates in Obstacle space or out of map")
 
-    planned_path, nodes_visited = djikstra(image, start_coordinate, goal_coordinate)
+    closed_queue = dijkstra(map,start_coordinate,goal_coordinate)
+    planned_path = track_back( closed_queue ,start_coordinate, goal_coordinate, map)
 
+    if type(planned_path) == type(list()):
+        for x,y in planned_path:
+            map[x,y] = 1
 
-    # cv2.imshow('map', map)
-    # cv2.waitKey(0)
-    # cv2.destroyAllWindows()
-    # planned_path, node_visited = 
-
-    # if type(planned_path) == type(list()):
-    #     for x,y in planned_path:
-    #         map[x,y] = 1
-
-        # cv2.imshow('path', map)
-        # cv2.waitKey(0)
-        # cv2.destroyAllWindows()
-    # parent = djikstra(map,start_coordinate,goal_coordinate)
-    # planned_path = track_back(parent, start_coordinate, goal_coordinate)
-    # print(len(planned_path))
+        cv2.imshow("Final planned path",map)
+        cv2.waitKey(0)
+        cv2.destroyAllWindows()
 
     
